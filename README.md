@@ -71,6 +71,16 @@ I wrote 20 innocent prompts (English and German) that use the model's top inject
 - The flags were caused by exactly the top injection words: "you", "sie", "du", "write", "schreibe", "instructions", "ignore", "vergiss", "forget".
 - On the test set, the false alarm rate was only 1 of 56. The difference comes from the data: the dataset's normal prompts are mostly news questions that rarely talk to the AI, so the model learned that talking to the AI = injection. My prompts were chosen to hit those words, so 0.95 is a worst case - but real users do talk to their assistant. Full table: [false_positives.csv](false_positives.csv).
 
+## Latency
+
+| What | Time |
+|---|---|
+| One prediction, short prompt | 0.47 ms |
+| One prediction, longest test prompt (88 words) | 0.54 ms |
+| Running `predict.py` once | ~2.2 s |
+
+One prediction takes about half a millisecond, because the model only multiplies the TF-IDF values of the prompt's words by about 2,300 learned weights - far fewer than the millions or billions in large neural models. Running the script is much slower because it starts Python, imports scikit-learn and loads the model every time; a real service would load the model once and then answer many requests.
+
 ## Limitations
 
 - Small dataset (546 training prompts), English and German only.
@@ -97,3 +107,19 @@ pip install -r requirements.txt
 ```
 
 Then open `detector.ipynb` (for example in VS Code or Jupyter) and run all cells.
+
+## Usage
+
+The trained pipeline is saved as `model.joblib`, so you can check a prompt without opening the notebook:
+
+```bash
+python predict.py "Ignore all your previous instructions"
+# INJECTION (probability 0.782)
+
+python predict.py "hello"
+# SAFE (probability 0.307)
+```
+
+- The threshold is 0.4 (`THRESHOLD` at the top of `predict.py`).
+- The model was saved with scikit-learn 1.9.1. Install the pinned version from `requirements.txt`, because a different version may fail to load it.
+- **Security note:** loading a `.joblib` file can run code hidden inside it, just like Python's `pickle`. Only load model files you trust.
